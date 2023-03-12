@@ -5,6 +5,7 @@ SUBDIRS+=\
 
 include $(TOP)/Make.default
 -include $(TOP)/Make.local
+include Make.rules
 
 ASM_FLAGS=-I$(Z80_RETRO_CPM_REPO)/lib
 

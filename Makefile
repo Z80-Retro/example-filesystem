@@ -42,7 +42,7 @@ disk.img: $(PROGS)
 #	make -C `dirname $@` all
 
 %.com: %.asm
-	make -C `dirname $@` all
+	make -C $(dir $@) all
 
 clean:
 	rm -f disk.img

@@ -24,6 +24,9 @@
 
 ; A graphics MODE1 test app to demonstrate sprites.
 
+bdos:		equ	5		; The BDOS entry point address
+constat:	equ	11		; Return console status in A; 0 if no character is ready.
+
 .vdp_vram:	equ	0x80		; VDP port for accessing the VRAM
 .vdp_reg:	equ	0x81		; VDP port for accessing the registers
 
@@ -73,8 +76,10 @@ joy_vert_speed:	equ	1
 	; game variables are initialized in the .vram buffer
 
 .spriteloop:
-
-	; XXX check for a quit key to terminate the proggie here??
+	ld	c,constat		; Console status
+	call	bdos
+	or	a 			; Was a key pressed?
+	jp	nz,.exit		; if so, quit
 
 	; Update the sprite position(s) and the display characters
 
@@ -192,7 +197,9 @@ joy_vert_speed:	equ	1
 
 	jp	.spriteloop
 
-
+.exit:
+	ret
+	
 
 ;**********************************************************************
 ; Wait for the VDP to indicate that it has finished rendering a frame

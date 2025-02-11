@@ -4,7 +4,8 @@ include $(TOP)/Make.default
 PROGS=\
 	vdp1.com\
 	vdp99a.com\
-	vdp99b.com
+	vdp99b.com\
+	vdp99irq.com
 
 ASM_FLAGS+=-I $(Z80_RETRO_CPM_REPO)/lib -I $(Z80_RETRO_CPM_REPO)/libnouveau
 

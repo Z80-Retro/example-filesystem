@@ -42,6 +42,7 @@ PSTRING:        equ     0x09    ; print string string from DE will $ found
 
         ; It is assumed that the IRQs are disabled and in the reset default state.
         di
+        im      2               ; run in IRQ mode 2 (vector table)
         ld      a,.vectab>>8
         ld      i,a
         ld      a,0
@@ -74,8 +75,10 @@ PSTRING:        equ     0x09    ; print string string from DE will $ found
         inc     e               ; change starting color for repaint
 
         ; if a key has been pressed, exit
+        push    de
         ld      c,CONRDY
         call    BDOS
+        pop     de
         or      a
         jp      z,.loop
 
@@ -98,8 +101,12 @@ PSTRING:        equ     0x09    ; print string string from DE will $ found
 .wait_vsync:
 
         ; if a key has been pressed, return early
+        push    bc
+        push    de
         ld      c,CONRDY
         call    BDOS
+        pop     de
+        pop     bc
         or      a
         ret     nz
 
@@ -120,7 +127,9 @@ PSTRING:        equ     0x09    ; print string string from DE will $ found
         in      a,(.vdp_reg)    ; read the VDP status reg
         ld      (.vdp_stat),a   ; save the value for later analysis
         pop     af              ; restore the CPU state
-        reti
+        ei
+        ;reti   ; not really need since is not a Z80 peripheral
+        ret
 
 
 .null_handler:
@@ -133,7 +142,8 @@ PSTRING:        equ     0x09    ; print string string from DE will $ found
 .stack_top:
 
 
-        org     0x2000
+        ds      0x0100-($&0x00ff)       ; align thyself to the next multiple of 0x100
+
 .vectab:
         dw      .null_handler           ; int1
         dw      .int2_handler           ; int2

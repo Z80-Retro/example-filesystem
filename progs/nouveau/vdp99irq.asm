@@ -138,12 +138,7 @@ PSTRING:        equ     0x09    ; print string string from DE will $ found
 .vdp_stat:
         db      0               ; the latest post-IRQ vdp status 
 
-        ds      0x200
-.stack_top:
-
-
         ds      0x0100-($&0x00ff)       ; align thyself to the next multiple of 0x100
-
 .vectab:
         dw      .null_handler           ; int1
         dw      .int2_handler           ; int2
@@ -155,3 +150,7 @@ PSTRING:        equ     0x09    ; print string string from DE will $ found
         dw      .null_handler           ; asci0
         dw      .null_handler           ; asci1
         
+
+        org     $+0x200
+.stack_top:
+

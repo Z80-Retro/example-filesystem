@@ -41,19 +41,26 @@ PSTRING:        equ     0x09    ; print string string from DE will $ found
         ld      (.pat_ctr),a
 
 .loop:
-        ld      a,(.pat_ctr)
-        inc     a                               ; on the first pass, this will be 1
-        ld      (.pat_ctr),a
         ld      (.vram_buf),a
-
         ld      hl,.vram_buf
         ld      de,.vram_buf+1
         ld      bc,.vram_buf_end-.vram_buf-1
         ldir
 
-        ; this is a waste of ram but it tests the speed of the VDP vram I/O
+        ; Note that this program might not work properly when VDP interrupts 
+        ; are enabled and the VDP handler reads the status register.
 
+
+        ; This is a waste of ram but it tests the speed of the VDP vram I/O.
+
+        ;********************************************************
         ; copy the VRAM buffer out
+        in      a,(.vdp_reg)                    ; read the status register to reset the reg fsm
+        ld      a,0x00
+        out     (.vdp_reg),a                    ; VRAM address LSB
+        ld      a,0x40                          ; VRAM MSB (with 01 in msbs)
+        out     (.vdp_reg),a                    ; VRAM address MSB
+
         ld      hl,.vram_buf                    ; starting address of buf to write
         ld      e,(.vram_buf_end-.vram_buf)/256 ; how many 256-byte blocks to write
 .wr_256:
@@ -63,39 +70,66 @@ PSTRING:        equ     0x09    ; print string string from DE will $ found
         dec     e
         jr      nz,.wr_256
 
+        ;********************************************************
         ; read the VRAM buffer back to compare its contents
+        in      a,(.vdp_reg)                    ; read the status register to reset the reg fsm
+        ld      a,0x00
+        out     (.vdp_reg),a                    ; VRAM address LSB
+        ;ld      a,0x00                          ; VRAM MSB (with 00 in msbs)
+        out     (.vdp_reg),a                    ; VRAM address MSB
+
         ld      hl,.vram_buf2
         ld      e,(.vram_buf_end2-.vram_buf2)/256
 .rd_256:
         ld      b,0                             ; 256 bytes
         ld      c,.vdp_vram
-        otir
+        inir
         dec     e
         jr      nz,.rd_256
 
+        ;********************************************************
         ; compare the contents of the two buffers
-        ld      a,(.pat_ctr)                    ; needle
-        inc     a
-        ld      (.needle),a
-        ld      hl,.vram_buf                    ; haystack
-        ld      bc,.vram_buf_end-.vram_buf+2    ; include the needle/sentinel byte (plus one)
-        cpir                                    ; find needle in haystack
+        ld      hl,.vram_buf                    ; buffer A
+        ld      de,.vram_buf2                   ; buffer B
+        ld      bc,.vram_buf_end-.vram_buf      ; number of bytyes to compare
+.cmp_loop:
+        ld      a,(de)
+        cp      (hl)
+        jp      nz,.cmp_fail
+        inc     hl
+        inc     de
+        dec     bc
+        ld      a,b
+        or      c
+        jr      nz,.cmp_loop
 
-        jp      nz,.cpir_fail
-        dec     bc                              ; if found the sentinel then BC should be 1
-        jp      nz,.cpir_fail
-
+        ;********************************************************
         ; if a key has been pressed, exit
-        push    de
         ld      c,CONRDY
         call    BDOS
-        pop     de
-        or      a
+        or      a                               ; a = 0xff if a key is pressed
         jp      nz,.success
 
+        ;********************************************************
+        ; Say something as we go so we know that it is working
+        ld      e,'.'
+        ld      c,CONOUT
+        call    BDOS
+
+        ; twiddle the border color
         ld      a,(.pat_ctr)
-        or      a                               ; if we didn't complete a pass with the value 0..
-        jp      nz,.loop                        ; then keep going
+        out     (.vdp_reg),a                    ; reg value we want to set
+        ld      a,0x87                          ; reg number 7 (with msbs set to 10)
+        out     (.vdp_reg),a
+
+        ;********************************************************
+        ; increment the pattern number for the next pass 
+        ld      a,(.pat_ctr)
+        inc     a                               ; on the first pass, this will be 1
+        ld      (.pat_ctr),a
+        or      a                               ; if we count back to 0 then we're done
+        jp      nz,.loop                        ; else keep going
+        ; else fall through to success
 
 .success:
         ; print a success message
@@ -105,7 +139,7 @@ PSTRING:        equ     0x09    ; print string string from DE will $ found
         call    BDOS
         jp      0               ; exit
 
-.cpir_fail:
+.cmp_fail:
 
         ; print fail message
         ld      de,.fail_msg
@@ -127,8 +161,6 @@ PSTRING:        equ     0x09    ; print string string from DE will $ found
 .vram_buf2:
         org     $+8192
 .vram_buf_end2:
-.needle:                        ; place for a sentinel value 
-        org     $+1
 
         org     $+0x200
 .stack_top:

@@ -39,8 +39,14 @@ PSTRING:        equ     0x09    ; print string string from DE will $ found
 
         di
 
-        ; init the VDP registers
+        ; wait for vblank period
+        in      a,(.vdp_reg)    ; discard any existing status
+.vb_loop:
         in      a,(.vdp_reg)
+        and     0x80
+        jr      nz,.vb_loop
+
+        ; init the VDP registers
         ld      hl,.reg_init
         ld      b,.reg_init_len
         otir

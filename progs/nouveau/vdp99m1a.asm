@@ -547,7 +547,7 @@ endif
 
         ; VDP register init values
 .reg_init:
-        db      0x02,0x80       ; graphics mode 1
+        db      0x00,0x80       ; graphics mode 1
         db      0x40,0x81       ; graphics mode 1, enable screen
         db      0x02,0x82       ; name table 0x0800 - 0x0bff
         db      0x30,0x83       ; color table 0x0c00 - 0x0c20

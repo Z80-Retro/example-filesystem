@@ -8,7 +8,9 @@ PROGS=\
 	vdp99irq.com\
 	vdpvram.com\
 	vdp99m1a.com\
-	anim1.com
+	anim1.com\
+	text.com\
+	vdp99m2a.com
 
 ASM_FLAGS+=-I $(Z80_RETRO_CPM_REPO)/lib -I $(Z80_RETRO_CPM_REPO)/libnouveau
 

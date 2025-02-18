@@ -70,17 +70,17 @@ PSTRING:        equ     0x09    ; print string string from DE will $ found
         call    .sync_frame
         djnz    .ss_loop
 
-        ld      de,.vdp_name+8*32       ; there are 8 unused lines of space in our name table config
+        ld      de,.vdp_name+8*40       ; there are 8 unused lines of space in our name table config
         or      a                       ; clear the carry flag
         push    hl
         sbc     hl,de
         pop     hl
         jp      z,.scroller
 
-        ld      de,32
+        ld      de,40
         add     hl,de                   ; scroll down a line
         ld      de,0x0800               ; target VRAM name table address
-        ld      bc,768                  ; actual number of viewable characters
+        ld      bc,960                  ; actual number of viewable characters
         push    hl
         call    .vdp_write
         call    .kbhit

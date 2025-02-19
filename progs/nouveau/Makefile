@@ -5,7 +5,8 @@ PROGS=\
 	vdp1.com\
 	vdp99a.com\
 	vdp99b.com\
-	vdp99irq.com\
+	vdp99ir.com\
+	vdp99ir2.com\
 	vdpvram.com\
 	vdp99m1a.com\
 	anim1.com\

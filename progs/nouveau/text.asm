@@ -434,8 +434,30 @@ PSTRING:        equ     0x09    ; print string string from DE will $ found
         db      0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7, 0xd8, 0xd9, 0xda, 0xdb, 0xdc, 0xdd, 0xde, 0xdf
         db      0xe0, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7, 0xe8, 0xe9, 0xea, 0xeb, 0xec, 0xed, 0xee, 0xef
         db      0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff
+        db      0x7f, 0x7f              ; round to multiple of 40
 
-        db      ".....John was here!...."
+        db      "                                        "
+        db      "  . . . . . . John was here! . . . . .  "
+        db      "                                        "
+        db      "                                        "
+        db      " !\"#$%&'()*+,-./0123456789:;<=>?        "     ; note escape
+        db      "                                        "
+        db      "@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_        "     ; note escape
+
+        db      "`abcdefghijklmnopqrstuvwxyz{|}~", 0x7f
+        db      "        "
+
+        db      "                                        "
+        db      "                                        "
+        db      "                                        "
+        db      "                                        "
+        db      "                                        "
+        db      "                                        "
+        db      "                                        "
+        db      "                                        "
+        db      "                                        "
+        db      "                                        "
+        db      "                                        "
 
 
 .vram_raw_len:      equ     $-.vram_raw

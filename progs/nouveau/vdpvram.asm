@@ -35,10 +35,20 @@ CONRDY:         equ     0x0b    ; a = 0 if no char ready, else 0xff
 PSTRING:        equ     0x09    ; print string string from DE will $ found
 
 	org	0x100
+
+        di
         ld      sp,.stack_top
 
         xor     a
         ld      (.pat_ctr),a
+
+if 0
+        ; init the VDP registers (if want a consistent configuration)
+        ld      hl,.reg_init
+        ld      b,.reg_init_len
+        ld      c,.vdp_reg
+        otir
+endif
 
 .loop:
         ld      (.vram_buf),a
@@ -63,9 +73,9 @@ PSTRING:        equ     0x09    ; print string string from DE will $ found
 
         ld      hl,.vram_buf                    ; starting address of buf to write
         ld      e,(.vram_buf_end-.vram_buf)/256 ; how many 256-byte blocks to write
-.wr_256:
         ld      b,0             ; 256 bytes
         ld      c,.vdp_vram
+.wr_256:
         otir
         dec     e
         jr      nz,.wr_256
@@ -80,9 +90,9 @@ PSTRING:        equ     0x09    ; print string string from DE will $ found
 
         ld      hl,.vram_buf2
         ld      e,(.vram_buf_end2-.vram_buf2)/256
-.rd_256:
         ld      b,0                             ; 256 bytes
         ld      c,.vdp_vram
+.rd_256:
         inir
         dec     e
         jr      nz,.rd_256
@@ -146,6 +156,21 @@ PSTRING:        equ     0x09    ; print string string from DE will $ found
         ld      c,PSTRING
         call    BDOS
         jp      0
+
+
+.reg_init:
+        db      0x02,0x80       ; text mode
+        db      0x40,0x81       ; text mode, enable screen
+        db      0x00,0x82       ; name table = 0
+;        db      0x00,0x83       ; color table = 0
+        db      0xff,0x83       ; color table = 0x2000  (force FSM to read crud from memory not getting tested)
+        db      0x00,0x84       ; pattern table = 0
+        db      0x00,0x85       ; sprite attribute table = 0
+        db      0x00,0x86       ; sprite pattern table = 0
+        db      0x36,0x87       ; fg/bg colors
+.reg_init_len:   equ    $-.reg_init
+
+
 
 .success_msg:
         db      "success\r\n$"

@@ -21,7 +21,7 @@
 ;
 ;****************************************************************************
 
-; Enter mode 1 and draw something on the screen
+; Enter mode 2 and draw something on the screen
 
 .il_reg:        equ     0x33    ; Interrupt Vector Low Register
 .itc_reg:       equ     0x34    ; INT/TRAP Control Register
@@ -59,9 +59,6 @@ PSTRING:        equ     0x09    ; print string string from DE will $ found
         ld      bc,.vram_raw_len
         call    .vdp_write
 
-
-        ; mess with the pattern values to see if things make sense
-
         jp      0
 
 
@@ -78,27 +75,26 @@ PSTRING:        equ     0x09    ; print string string from DE will $ found
         or      0x40                            ; VRAM MSB (with 01 in msbs)
         out     (.vdp_reg),a                    ; VRAM address MSB
 
-        ld      d,b
-        ld      e,c
-        ld      c,.vdp_vram
+        ld      d,b                             ; D = counmt of 256-byte blocks to write
+        ld      e,c                             ; E = residual size of last runt block
+        ld      c,.vdp_vram                     ; C = IO port
 
         ld      a,d
         or      a
-        jr      z,.wr_resid
-        ld      b,0             ; 256 bytes
+        jr      z,.wr_resid                     ; if no 256-byte blocks left to write, skip to residual
+        ld      b,0                             ; write 256 bytes using OTIR
 .wr_256:
-        otir
-        dec     d
-        jr      nz,.wr_256
+        otir                                    ; output 256 bytes
+        dec     d                               ; count the block
+        jr      nz,.wr_256                      ; if more left then go again
 
 .wr_resid:
-        ; is there any residual ?
-        ld      a,e
+        ld      a,e                             ; is there any residual data to send?
         or      a
-        ret     z               ; no? then we are done
+        ret     z                               ; no? then we are done
 
-        ld      b,e
-        otir
+        ld      b,e                             ; write residual length
+        otir                                    
         ret
 
 
@@ -1713,8 +1709,8 @@ PSTRING:        equ     0x09    ; print string string from DE will $ found
         db      0x06,0x82       ; name table 0x1800 - 0x1aff
         db      0xff,0x83       ; color table 0x2000 - 0x37ff
         db      0x03,0x84       ; pattern table 0x0000 - 0x17ff
-        db      0xff,0x85       ; sprint attribute table 0x3f80 - 0x3fff
-        db      0xff,0x86       ; sprint pattern table 0x3800 - 0x3fff
+        db      0xff,0x85       ; sprite attribute table 0x3f80 - 0x3fff
+        db      0xff,0x86       ; sprite pattern table 0x3800 - 0x3fff
         db      0x36,0x87       ; fg/bg colors
 .reg_init_len:   equ    $-.reg_init
 

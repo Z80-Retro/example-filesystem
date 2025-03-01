@@ -470,8 +470,8 @@ PSTRING:        equ     0x09    ; print string string from DE will $ found
         db      0x02,0x82       ; name table 0x0800 - 0x0bff
         db      0x30,0x83       ; color table 0x0c00 - 0x0c20    (not used)
         db      0x00,0x84       ; pattern table 0x0000 - 0x07ff
-        db      0xff,0x85       ; sprint attribute table 0x3f80 - 0x3fff (not used)
-        db      0xff,0x86       ; sprint pattern table 0x3800 - 0x3fff (not used)
+        db      0xff,0x85       ; sprite attribute table 0x3f80 - 0x3fff (not used)
+        db      0xff,0x86       ; sprite pattern table 0x3800 - 0x3fff (not used)
         db      0x31,0x87       ; fg/bg colors
 .reg_init_len:   equ    $-.reg_init
 

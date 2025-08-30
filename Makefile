@@ -8,7 +8,7 @@ all:: disk.img
 # assume that there will be one .com file that is built for each .asm file
 SRC=$(wildcard progs/*/*.asm)
 PROGS=$(SRC:%.asm=%.com)
-PROG_DIRS=$(dir $(PROGS))
+PROG_DIRS=$(sort $(dir $(SRC)))
 
 TOP=.
 
@@ -42,11 +42,11 @@ disk.img: $(PROGS)
 #	make -C `dirname $@` all
 
 %.com: %.asm
-	make -C $(dir $@) all
+	make -C $(dir $@) $(notdir $@)
 
 clean:
 	rm -f disk.img
-	for i in $(sort $(PROG_DIRS)); do make -C $$i clean; done
+	for i in $(PROG_DIRS); do make -C $$i clean; done
 
 
 world: clean all

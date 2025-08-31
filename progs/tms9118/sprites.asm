@@ -37,12 +37,16 @@ joy_down:	equ	0x40		; and-mask for down
 joy_btn:	equ	0x01		; and-mask for button
 
 joy_horiz_min:	equ	0x00		; left of the screen
-joy_horiz_max:	equ	0x0100-16	; right of the screen - sprite width
+;joy_horiz_max:	equ	0x0100-16	; right of the screen - sprite width
+joy_horiz_max:	equ	0x0100-8	; right of the screen - sprite width 8x8
 joy_vert_min:	equ	0x00		; top of the screen
-joy_vert_max:	equ	0x00c0-16	; bottom of the screen - sprite height
+;joy_vert_max:	equ	0x00c0-16	; bottom of the screen - sprite height
+joy_vert_max:	equ	0x00c0-8	; bottom of the screen - sprite height 8x8
 
-joy_horiz_speed: equ	3		; movement rate pixel rate/field 
+joy_horiz_speed: equ	1		; movement rate pixel rate/field
 joy_vert_speed:	equ	1
+
+bdos:           equ     0x0005          ; BDOS entry point
 
 	org	0x100
 
@@ -74,17 +78,49 @@ joy_vert_speed:	equ	1
 
 .spriteloop:
 
-	; XXX check for a quit key to terminate the proggie here??
-
 	; Update the sprite position(s) and the display characters
 
-	ld	b,0x00			; B = direction mask: up=4, dn=1, rt=2, lt=8
-	ld	de,(.paddle0)		; D = x position, E = y position
+.check_key:
+        ; get a key if one was hit
+        ld      c,6                     ; poll keyboard
+        ld      e,0xff
+        call    bdos
+        or      a
+        jr      z,.check_joy            ; no? read from joystick
 
+        cp      'q'                     ; quit?
+        jp      z,.exit
+
+        cp      'e'                     ; up?
+        jr      nz,.not_key_e
+        ld      c,~joy_up&0x0ff
+        jp      .do_joy
+.not_key_e:
+        cp      'x'                     ; down?
+        jr      nz,.not_key_x
+        ld      c,~joy_down
+        jp      .do_joy
+.not_key_x:
+        cp      's'                     ; left?
+        jr      nz,.not_key_s
+        ld      c,~joy_left
+        jp      .do_joy
+.not_key_s:
+        cp      'd'                     ; right?
+        jr      nz,.check_joy
+        ld      c,~joy_right
+        jp      .do_joy
+
+.check_joy:
 	in	a,(.joy1)		; Read joystick once so can't transition during processing
 	ld	c,a			; C = current joystick value
 
+.do_joy:
 	; up/down and left/right direction control logic
+
+	ld	b,0x00			; B = direction mask: up=4, dn=1, rt=2, lt=8
+	ld	de,(.paddle0)		; D = x position, E = y position
+        inc     e                       ; compensate for vertical axis starting at 0xff
 
 	; move up?
 	ld	a,c
@@ -135,7 +171,7 @@ joy_vert_speed:	equ	1
 	ld	d,joy_horiz_min		; assume we hit the limit 
 	cp	joy_horiz_min+joy_horiz_speed
 	jp	c,.left_limit		; if borrow then we are at the limit
-	sub	joy_horiz_speed		; move it up
+	sub	joy_horiz_speed		; move it
 	ld	d,a
 .left_limit:
 .not_left:
@@ -162,6 +198,7 @@ joy_vert_speed:	equ	1
 	;	...BUUUUT that would make it tougher to check timing on the scope.
 	;	...AAAAND the call to vdp_wait is how the game speed is governed.
 
+        dec     e                       ; because 0xff is the first visible row
 	ld	(.paddle0),de		; store sprite posn back into sprite attrib table
 
 	; update the character code representing the mouse direction
@@ -192,6 +229,9 @@ joy_vert_speed:	equ	1
 
 	jp	.spriteloop
 
+
+.exit:
+        ret
 
 
 ;**********************************************************************
@@ -350,6 +390,8 @@ vdp_write_slow:
 	db	0x10,0x10,0xfe,0x7c,0x38,0x6c,0x44,0x00	; 0 = star
 	db	0x3c,0x7e,0xff,0xff,0xff,0xff,0x7e,0x3c	; 1 = ball
 	db	0x00,0x00,0x00,0x00,0xff,0xff,0xff,0x00	; 2 = horizontal paddle
+	db	0xff,0x81,0x81,0x81,0x81,0x81,0x81,0xff	; 3 = hollow box
+	db	0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff	; 4 = solid box
 
 	ds      0x800-($-.spritepat),0xf0       	; padd the rest of the sprite pattern table
 
@@ -376,8 +418,167 @@ vdp_write_slow:
 .paddle0:
 	db	24*8/2-16/2	; vertical position.   0=top (center it)
 	db	32*8/2-16/2	; horizontal position. 0=left (center it)
-	db	0x02		; pattern name number
+	db	0x03		; pattern name number
 	db	0x08		; early clock & color
+
+.paddle1:
+	db	24*8/2-16/2	; vertical position.   0=top (center it)
+	db	32*8/2-16/2	; horizontal position. 0=left (center it)
+	db	0x01		; pattern name number
+	db	0x07		; early clock & color
+
+.paddle2:       ; upper left corner
+	db	0xff            ; vertical position
+	db	0               ; horizontal position. 0=left
+	db	0x03		; pattern name number
+	db	0x0f		; early clock & color
+
+.paddle3:       ; lower right corner
+	db	0xb7            ; vertical position b7 = bottom 8 pixels
+	db	0xf8            ; horizontal position. f8 = right 8 pixels
+	db	0x03		; pattern name number
+	db	0x0f		; early clock & color
+
+; sprites 4..31 are staggered to test the prio encoder in the vdp
+	db	0x10            ; vert
+	db	0x10            ; horiz
+	db	0x04            ; pattern
+	db	0x01            ; color
+
+	db	0x12            ; vert
+	db	0x12            ; horiz
+	db	0x04            ; pattern
+	db	0x02            ; color
+
+	db	0x14            ; vert
+	db	0x14            ; horiz
+	db	0x04            ; pattern
+	db	0x03            ; color
+
+	db	0x16            ; vert
+	db	0x16            ; horiz
+	db	0x04            ; pattern
+	db	0x04            ; color
+
+	db	0x18            ; vert
+	db	0x18            ; horiz
+	db	0x04            ; pattern
+	db	0x05            ; color
+
+	db	0x1a            ; vert
+	db	0x1a            ; horiz
+	db	0x04            ; pattern
+	db	0x06            ; color
+
+	db	0x1c            ; vert
+	db	0x1c            ; horiz
+	db	0x04            ; pattern
+	db	0x07            ; color
+
+	db	0x1e            ; vert
+	db	0x1e            ; horiz
+	db	0x04            ; pattern
+	db	0x08            ; color
+
+	db	0x20            ; vert
+	db	0x20            ; horiz
+	db	0x04            ; pattern
+	db	0x09            ; color
+
+	db	0x22            ; vert
+	db	0x22            ; horiz
+	db	0x04            ; pattern
+	db	0x0a            ; color
+
+	db	0x24            ; vert
+	db	0x24            ; horiz
+	db	0x04            ; pattern
+	db	0x0b            ; color
+
+	db	0x26            ; vert
+	db	0x26            ; horiz
+	db	0x04            ; pattern
+	db	0x0c            ; color
+
+	db	0x28            ; vert
+	db	0x28            ; horiz
+	db	0x04            ; pattern
+	db	0x0d            ; color
+
+	db	0x2a            ; vert
+	db	0x2a            ; horiz
+	db	0x04            ; pattern
+	db	0x0e            ; color
+
+	db	0x2c            ; vert
+	db	0x2c            ; horiz
+	db	0x04            ; pattern
+	db	0x0f            ; color
+
+	db	0x2e            ; vert
+	db	0x2e            ; horiz
+	db	0x04            ; pattern
+	db	0x01            ; color
+
+	db	0x30            ; vert
+	db	0x30            ; horiz
+	db	0x04            ; pattern
+	db	0x02            ; color
+
+	db	0x32            ; vert
+	db	0x32            ; horiz
+	db	0x04            ; pattern
+	db	0x03            ; color
+
+	db	0x34            ; vert
+	db	0x34            ; horiz
+	db	0x04            ; pattern
+	db	0x04            ; color
+
+	db	0x36            ; vert
+	db	0x36            ; horiz
+	db	0x04            ; pattern
+	db	0x05            ; color
+
+	db	0x38            ; vert
+	db	0x38            ; horiz
+	db	0x04            ; pattern
+	db	0x06            ; color
+
+	db	0x3a            ; vert
+	db	0x3a            ; horiz
+	db	0x04            ; pattern
+	db	0x07            ; color
+
+	db	0x3c            ; vert
+	db	0x3c            ; horiz
+	db	0x04            ; pattern
+	db	0x08            ; color
+
+	db	0x3e            ; vert
+	db	0x3e            ; horiz
+	db	0x04            ; pattern
+	db	0x09            ; color
+
+	db	0x40            ; vert
+	db	0x40            ; horiz
+	db	0x04            ; pattern
+	db	0x0a            ; color
+
+	db	0x42            ; vert
+	db	0x42            ; horiz
+	db	0x04            ; pattern
+	db	0x0b            ; color
+
+	db	0x44            ; vert
+	db	0x44            ; horiz
+	db	0x04            ; pattern
+	db	0x0c            ; color
+
+	db	0x46            ; vert
+	db	0x46            ; horiz
+	db	0x04            ; pattern
+	db	0x0d            ; color
 
 	ds      0x080-($-.spriteattr),0xd0     		; padd the rest (0xd0 = no such sprite)
 
@@ -409,15 +610,15 @@ endif
 ;**********************************************************************
 .mode1init:
 	db	0x00,0x80	; R0 = graphics mode, no EXT video
-;	db	0xc0,0x81	; R1 = 16K RAM, enable display, disable INT, 8x8 sprites, mag off
+	db	0xc0,0x81	; R1 = 16K RAM, enable display, disable INT, 8x8 sprites, mag off
 ;	db	0xc1,0x81	; R1 = 16K RAM, enable display, disable INT, 8x8 sprites, mag on
-	db	0xe1,0x81	; R1 = 16K RAM, enable display, enable INT, 8x8 sprites, mag on
+;	db	0xe1,0x81	; R1 = 16K RAM, enable display, enable INT, 8x8 sprites, mag on
 	db	0x05,0x82	; R2 = name table = 0x1400
 	db	0x80,0x83	; R3 = color table = 0x0200
 	db	0x01,0x84	; R4 = pattern table = 0x0800
 	db	0x20,0x85	; R5 = sprite attribute table = 0x1000
 	db	0x00,0x86	; R6 = sprite pattern table = 0x0000
-	db	0xf1,0x87	; R7 = fg=white, bg=black
+	db	0xf4,0x87	; R7 = fg=white, bg=dark blue
 .mode1init_len: equ	$-.mode1init	; number of bytes to write
 
 	ds	1024

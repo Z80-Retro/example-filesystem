@@ -38,9 +38,9 @@ bdos:           equ     0x0005          ; BDOS entry point
 
 	org	0x100
 
-        ld      bc,0x00e7               ; A low
+        ld      bc,0x0000               ; A low
         call    .ay_write_reg
-        ld      bc,0x0107               ; A hi
+        ld      bc,0x0101               ; A hi
         call    .ay_write_reg
         ld      bc,0x080f               ; A max amp, no env
         call    .ay_write_reg
@@ -51,8 +51,10 @@ bdos:           equ     0x0005          ; BDOS entry point
 
 .joy_loop:
         ;just shove the joystick bits into the period reg so can change it easily 
-        in      a,(.joy0)
-        ld      b,0x01
+        in      a,(.joy1)
+        cpl                             ; joystick bits are active-low
+        and     0xf5                    ; only the joystick & buttons
+        ld      b,0x00
         ld      c,a
         call    .ay_write_reg
         jp      .joy_loop

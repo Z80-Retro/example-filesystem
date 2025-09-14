@@ -37,11 +37,15 @@ joy_down:       equ     0x40            ; and-mask for down
 joy_btn:        equ     0x01            ; and-mask for button
 
 joy_horiz_min:  equ     0x00            ; left of the screen
+
 ;joy_horiz_max: equ     0x0100-16       ; right of the screen - sprite width
-joy_horiz_max:  equ     0x0100-8        ; right of the screen - sprite width 8x8
+;joy_horiz_max:  equ     0x0100-8        ; right of the screen - sprite width 8x8
+joy_horiz_max:  equ     0xff
+
 joy_vert_min:   equ     0x00            ; top of the screen
 ;joy_vert_max:  equ     0x00c0-16       ; bottom of the screen - sprite height
-joy_vert_max:   equ     0x00c0-8        ; bottom of the screen - sprite height 8x8
+;joy_vert_max:   equ     0x00c0-8        ; bottom of the screen - sprite height 8x8
+joy_vert_max:   equ     0x00c0          ; off the bottom of the screen
 
 joy_horiz_speed: equ    1               ; movement rate pixel rate/field
 joy_vert_speed: equ     1
@@ -86,7 +90,7 @@ bdos:           equ     0x0005          ; BDOS entry point
         ld      e,0xff
         call    bdos
         or      a
-        jr      z,.check_joy            ; no? read from joystick
+        jp      z,.check_joy            ; no? read from joystick
 
         cp      'q'                     ; quit?
         jp      z,.exit
@@ -117,38 +121,72 @@ bdos:           equ     0x0005          ; BDOS entry point
         jp      .do_joy
 .not_key_sp:
 
+        ; select sprite size & mag: 1, 2, 3, 4
+        cp      '1'                     ; size=8x8, mag=off
+        jr      nz,.not_key1
+        ld      a,0xc0
+        jp      .set_mode
+.not_key1:
+        cp      '2'
+        jr      nz,.not_key2
+        ld      a,0xc1
+        jp      .set_mode
+.not_key2:
+        cp      '3'
+        jr      nz,.not_key3
+        ld      a,0xc2
+        jp      .set_mode
+.not_key3:
+        cp      '4'
+        jr      nz,.not_key4
+        ld      a,0xc3
+        jp      .set_mode
+
+.set_mode:
+        out     (.vdp_reg),a
+        ld      a,0x81
+        out     (.vdp_reg),a
+        jp      .check_joy
+
+.not_key4:
+
+        ; select ec on/off: -, +
+        cp      '-'
+        jr      nz,.not_keym
+        ld      a,0x88
+        ld      (.paddle0+3),a          ; set the EC bit
+        jp      .check_joy
+.not_keym:
+        cp      '_'
+        jr      nz,.not_keyp
+        ld      a,0x08
+        ld      (.paddle0+3),a          ; clear the EC bit
+        jp      .check_joy
+.not_keyp:
+        
+        cp      '8'
+        jr      nz,.not_key8
+        ld      a,0x03
+        ld      (.paddle0+2),a          ; 8x8 box
+        jp      .check_joy
+.not_key8:
+        cp      '9'
+        jr      nz,.not_key9
+        ld      a,0x08
+        ld      (.paddle0+2),a          ; 16x16 box
+        jp      .check_joy
+.not_key9:
+
+
+
 .check_joy:
         in      a,(.joy1)               ; Read joystick once so can't transition during processing
         ld      c,a                     ; C = current joystick value
 
 .do_joy:
 
-        ; if the fire-button is pressed, change the size/mag settings
-        ld      a,c
-        and             joy_btn
-        jr              nz,.not_btn             ; if button not pressed, skip
-
-        push    bc
-        ld              hl,.spritemodes         ; point to mode table
-        ld              a,(.currentmode)
-        inc             a
-        cp              .spritemodes_len
-        jr              c,.spmode_nowrap        ; if a < .spritemodes_len then branch
-        xor             a
-.spmode_nowrap:
-        ld              (.currentmode),a
-        add             a,a                     ; a = a*2
-        ld              c,a
-        ld              b,0
-        add             hl,bc                   ; hl = mode data to send address
-        ld              b,2                     ; 2 bytes to send
-        ld              c,.vdp_reg              ; where to send it
-        otir                                    ; send it
-        pop             bc
-
         ; up/down and left/right direction control logic
 
-.not_btn:
         ld      b,0x00                  ; B = direction mask: up=4, dn=1, rt=2, lt=8
         ld      de,(.paddle0)           ; D = x position, E = y position
         inc     e                       ; compensate for vertical axis starting at 0xff
@@ -457,9 +495,10 @@ vdp_write_slow:
 .paddle0:
         db      24*8/2-16/2     ; vertical position.   0=top (center it)
         db      32*8/2-16/2     ; horizontal position. 0=left (center it)
-;       db      0x03            ; pattern name number (8x8 box)
-        db      0x08            ; pattern name number (16x16 smiley)
+        db      0x03            ; pattern name number (8x8 box)
+;       db      0x08            ; pattern name number (16x16 smiley)
         db      0x08            ; early clock & color
+;       db      0x88            ; early clock & color
 
 .paddle1:
         db      24*8/2-16/2     ; vertical position.   0=top (center it)
@@ -658,18 +697,6 @@ endif
         db      0x00,0x86       ; R6 = sprite pattern table = 0x0000
         db      0xf4,0x87       ; R7 = fg=white, bg=dark blue
 .mode1init_len: equ     $-.mode1init    ; number of bytes to write
-
-        ; only one of these modes is selected at a time
-.spritemodes:
-        db      0xc0,0x81       ; R1 = 16K RAM, GM1, enable display, disable INT, 8x8 sprites, mag off
-        db      0xc1,0x81       ; R1 = 16K RAM, GM1, enable display, disable INT, 8x8 sprites, mag on
-        db      0xc2,0x81       ; R1 = 16K RAM, GM1, enable display, disable INT, 16x16 sprites, mag off
-        db      0xc3,0x81       ; R1 = 16K RAM, GM1, enable display, disable INT, 16x16 sprites, mag on
-        db      0xe1,0x81       ; R1 = 16K RAM, GM1, enable display, enable INT, 8x8 sprites, mag on
-.spritemodes_len: equ   ($-.spritemodes)/2      ; num of entries in the .spritemodes table
-
-.currentmode:
-        db      0               ; the current mode
 
         ds      1024
 .stack: equ     $

@@ -81,46 +81,78 @@ bdos:           equ     0x0005          ; BDOS entry point
 	; Update the sprite position(s) and the display characters
 
 .check_key:
-        ; get a key if one was hit
-        ld      c,6                     ; poll keyboard
-        ld      e,0xff
-        call    bdos
-        or      a
-        jr      z,.check_joy            ; no? read from joystick
+    ; get a key if one was hit then make it look like a joystick switch closed
+    ld      c,6                     ; poll keyboard
+    ld      e,0xff
+    call    bdos
+    or      a
+    jr      z,.check_joy            ; no? read from joystick
 
-        cp      'q'                     ; quit?
-        jp      z,.exit
+    cp      'q'                     ; quit?
+    jp      z,.exit
 
-        cp      'e'                     ; up?
-        jr      nz,.not_key_e
-        ld      c,~joy_up&0x0ff
-        jp      .do_joy
+    cp      'e'                     ; up?
+    jr      nz,.not_key_e
+    ld      c,~joy_up&0x0ff
+    jp      .do_joy
 .not_key_e:
-        cp      'x'                     ; down?
-        jr      nz,.not_key_x
-        ld      c,~joy_down
-        jp      .do_joy
+    cp      'x'                     ; down?
+    jr      nz,.not_key_x
+    ld      c,~joy_down
+    jp      .do_joy
 .not_key_x:
-        cp      's'                     ; left?
-        jr      nz,.not_key_s
-        ld      c,~joy_left
-        jp      .do_joy
+    cp      's'                     ; left?
+    jr      nz,.not_key_s
+    ld      c,~joy_left
+    jp      .do_joy
 .not_key_s:
-        cp      'd'                     ; right?
-        jr      nz,.check_joy
-        ld      c,~joy_right
-        jp      .do_joy
+    cp      'd'                     ; right?
+    jr      nz,.not_key_d
+    ld      c,~joy_right
+    jp      .do_joy
+.not_key_d:
+    cp      ' '                     ; button?
+    jr      nz,.not_key_sp
+    ld      c,~joy_btn
+    jp      .do_joy
+.not_key_sp:
 
 .check_joy:
 	in	a,(.joy1)		; Read joystick once so can't transition during processing
-	ld	c,a			; C = current joystick value
+	ld	c,a				; C = current joystick value
 
 .do_joy:
-	; up/down and left/right direction control logic
 
-	ld	b,0x00			; B = direction mask: up=4, dn=1, rt=2, lt=8
-	ld	de,(.paddle0)		; D = x position, E = y position
-        inc     e                       ; compensate for vertical axis starting at 0xff
+	; if the fire-button is pressed, change the size/mag settings
+	ld  	a,c
+	and		joy_btn
+	jr		nz,.not_btn			; if button not pressed, skip
+
+	push	bc
+	ld		hl,.spritemodes		; point to mode table
+	ld		a,(.currentmode)
+	inc		a
+	cp		.spritemodes_len
+	jr		c,.spmode_nowrap	; if a < .spritemodes_len then branch
+	xor		a
+.spmode_nowrap:
+	ld		(.currentmode),a
+	add		a,a					; a = a*2
+	ld		c,a
+	ld		b,0
+	add		hl,bc				; hl = mode data to send address
+	ld		b,2					; 2 bytes to send
+	ld		c,.vdp_reg			; where to send it
+	otir						; send it
+	pop		bc
+
+	; up/down and left/right direction control logic
+	
+
+.not_btn:
+	ld	b,0x00					; B = direction mask: up=4, dn=1, rt=2, lt=8
+	ld	de,(.paddle0)			; D = x position, E = y position
+    inc     e                   ; compensate for vertical axis starting at 0xff
 
 	; move up?
 	ld	a,c
@@ -426,8 +458,8 @@ vdp_write_slow:
 .paddle0:
 	db	24*8/2-16/2	; vertical position.   0=top (center it)
 	db	32*8/2-16/2	; horizontal position. 0=left (center it)
- 	db	0x03		; pattern name number (8x8 box)
-;	db	0x08		; pattern name number (16x16 smiley)
+; 	db	0x03		; pattern name number (8x8 box)
+ 	db	0x08		; pattern name number (16x16 smiley)
 	db	0x08		; early clock & color
 
 .paddle1:
@@ -619,11 +651,7 @@ endif
 ;**********************************************************************
 .mode1init:
 	db	0x00,0x80	; R0 = GM1, no EXT video
-	db	0xc0,0x81	; R1 = 16K RAM, GM1, enable display, disable INT, 8x8 sprites, mag off
-;	db	0xc1,0x81	; R1 = 16K RAM, GM1, enable display, disable INT, 8x8 sprites, mag on
-;	db	0xc2,0x81	; R1 = 16K RAM, GM1, enable display, disable INT, 16x16 sprites, mag off
-;	db	0xc3,0x81	; R1 = 16K RAM, GM1, enable display, disable INT, 16x16 sprites, mag on
-;	db	0xe1,0x81	; R1 = 16K RAM, GM1, enable display, enable INT, 8x8 sprites, mag on
+	db	0xc0,0x81	; R1 = 16K RAM, GM1, enable display, disable INT, 8x8 sprites, mag off (initial/default mode)
 	db	0x05,0x82	; R2 = name table = 0x1400
 	db	0x80,0x83	; R3 = color table = 0x0200
 	db	0x01,0x84	; R4 = pattern table = 0x0800
@@ -631,6 +659,18 @@ endif
 	db	0x00,0x86	; R6 = sprite pattern table = 0x0000
 	db	0xf4,0x87	; R7 = fg=white, bg=dark blue
 .mode1init_len: equ	$-.mode1init	; number of bytes to write
+
+	; only one of these modes is selected at a time
+.spritemodes:
+	db	0xc0,0x81			; R1 = 16K RAM, GM1, enable display, disable INT, 8x8 sprites, mag off
+	db	0xc1,0x81			; R1 = 16K RAM, GM1, enable display, disable INT, 8x8 sprites, mag on
+	db	0xc2,0x81			; R1 = 16K RAM, GM1, enable display, disable INT, 16x16 sprites, mag off
+	db	0xc3,0x81			; R1 = 16K RAM, GM1, enable display, disable INT, 16x16 sprites, mag on
+	db	0xe1,0x81			; R1 = 16K RAM, GM1, enable display, enable INT, 8x8 sprites, mag on
+.spritemodes_len: equ	($-.spritemodes)/2	; num of entries in the .spritemodes table
+
+.currentmode:
+	db	0					; the current mode
 
 	ds	1024
 .stack:	equ	$

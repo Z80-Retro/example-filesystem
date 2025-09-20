@@ -32,20 +32,57 @@ disk.img: $(PROGS)
 	mkfs.cpm -f $(DISKDEF) $@
 	cpmcp -f $(DISKDEF) $@ $^ 0:
 
-#progs/example/test1.com:
-#	make -C progs/example all
 
-#progs/nhacp/nt.com:
-#	make -C progs/nhacp all
+# files to overwrite onto CP/M drive D 
+burn3: disk3.img
+	@ if [ -z "$(PROGS3)" ]; then\
+		echo "PROGS3 is empty, nothing to do!"; \
+		false; \
+	fi
+	@ if [ `hostname` != "$(SD_HOSTNAME)" -o ! -b "$(SD_DEV)" ]; then\
+		echo "\nWARNING: You are either NOT logged into $(SD_HOSTNAME) or there is no $(SD_DEV) mounted!\n"; \
+		false; \
+	fi
+	sudo dd if=$< of=$(SD_DEV) bs=512 seek=3x16384 conv=fsync
+disk3.img: $(PROGS3)
+	@ if [ -z "$(PROGS3)" ]; then\
+		echo "PROGS3 is empty, nothing to do!"; \
+		false; \
+	fi
+	rm -f $@
+	mkfs.cpm -f $(DISKDEF) $@
+	cpmcp -f $(DISKDEF) $@ $^ 0:
+ls:: disk3.img
+	cpmls -f $(DISKDEF) disk3.img
 
-#progs/example/test1.com:
-#	make -C `dirname $@` all
+# files to overwrite onto CP/M drive B
+burn1: disk1.img
+	@ if [ -z "$(PROGS1)" ]; then\
+		echo "PROGS1 is empty, nothing to do!"; \
+		false; \
+	fi
+	@ if [ `hostname` != "$(SD_HOSTNAME)" -o ! -b "$(SD_DEV)" ]; then\
+		echo "\nWARNING: You are either NOT logged into $(SD_HOSTNAME) or there is no $(SD_DEV) mounted!\n"; \
+		false; \
+	fi
+	sudo dd if=$< of=$(SD_DEV) bs=512 seek=1x16384 conv=fsync
+disk1.img: $(PROGS1)
+	@ if [ -z "$(PROGS1)" ]; then\
+		echo "PROGS1 is empty, nothing to do!"; \
+		false; \
+	fi
+	rm -f $@
+	mkfs.cpm -f $(DISKDEF) $@
+	cpmcp -f $(DISKDEF) $@ $^ 0:
+ls:: disk1.img
+	cpmls -f $(DISKDEF) disk1.img
+
 
 %.com: %.asm
 	make -C $(dir $@) $(notdir $@)
 
 clean:
-	rm -f disk.img
+	rm -f disk.img disk3.img disk1.img
 	for i in $(PROG_DIRS); do make -C $$i clean; done
 
 

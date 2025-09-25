@@ -288,9 +288,16 @@ endif
 ;	time. Therefore it is useful for testing non-critical code.
 ;*****************************************************************************
 .vdp_wait:
+if 0
 	in	a,(.vdp_reg)		; read the VDP status register
 	and	0x80			; frame flag on?
 	jp	z,.vdp_wait
+else
+	in	a,(.joy0)		; read the /INT status via bodge wire
+	and	0x02			; check U6, pin 4 (D1)
+	jp	nz,.vdp_wait
+	in	a,(.vdp_reg)		; read the VDP status register to reset the IRQ
+endif
 	ret
 
 
